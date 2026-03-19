@@ -7,6 +7,7 @@ import { generatePDF } from '../lib/pdfExport';
 import { useLanguage } from '../i18n';
 import { LanguageSwitcherCompact } from '../i18n/LanguageSwitcher';
 import MultiSelectDropdown from './MultiSelectDropdown';
+import { StartTourButton } from './TourGuide';
 
 export default function Dashboard({ onSelectAssessment, onCreateNew, onShowAnalytics }) {
   const { user, profile, signOut } = useAuth();
@@ -667,7 +668,7 @@ ${answers.length > 0 ? answers.map(a => `
       <style>{styles}</style>
       
       {/* Header */}
-      <div className="dashboard-header">
+      <div className="dashboard-header" data-tour="dashboard-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ 
             display: 'flex', 
@@ -682,6 +683,9 @@ ${answers.length > 0 ? answers.map(a => `
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {/* Tour Button */}
+          <StartTourButton />
+          
           {/* Language Switcher */}
           <LanguageSwitcherCompact />
           
@@ -743,7 +747,7 @@ ${answers.length > 0 ? answers.map(a => `
         </div>
 
         {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 32 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 32 }} data-tour="stats-cards">
           <div style={{ background: '#fff', borderRadius: 12, padding: 20, border: '1px solid #E8EDF2' }}>
             <div style={{ fontSize: 32, fontWeight: 800, color: '#1B3A5C' }}>{myAssessmentsFiltered.length}</div>
             <div style={{ fontSize: 13, color: '#7F8C8D' }}>{txt.myAssessments}</div>
@@ -761,6 +765,7 @@ ${answers.length > 0 ? answers.map(a => `
           {/* Analytics Button */}
           <Link 
             to="/analytics"
+            data-tour="analytics-button"
             style={{ 
               background: 'linear-gradient(135deg, #8E44AD 0%, #9B59B6 100%)', 
               borderRadius: 12, 
@@ -783,6 +788,7 @@ ${answers.length > 0 ? answers.map(a => `
           {/* SAP AI Catalog Button */}
           <Link 
             to="/ai-catalog"
+            data-tour="ai-catalog-button"
             style={{ 
               background: 'linear-gradient(135deg, #E67E22 0%, #F39C12 100%)', 
               borderRadius: 12, 
@@ -850,6 +856,7 @@ ${answers.length > 0 ? answers.map(a => `
             <button 
               className="dashboard-btn dashboard-btn-primary"
               onClick={() => setShowCreateModal(true)}
+              data-tour="new-assessment-button"
             >
               + {txt.newAssessment}
             </button>
@@ -1126,7 +1133,7 @@ ${answers.length > 0 ? answers.map(a => `
             ⏳ Lade Assessments...
           </div>
         ) : (
-          <div>
+          <div data-tour="assessment-list">
             {activeTab === 'my' && myAssessmentsFiltered.map(assessment => (
               <AssessmentCard 
                 key={assessment.id} 

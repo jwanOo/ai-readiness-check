@@ -303,7 +303,7 @@ export default function Analytics({ onSelectAssessment }) {
       <style>{styles}</style>
       
       {/* Header */}
-      <div className="analytics-header">
+      <div className="analytics-header" data-tour="analytics-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <Link to="/" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
             {t('analytics.back')}
@@ -393,7 +393,7 @@ export default function Analytics({ onSelectAssessment }) {
         </div>
 
         {/* Stats Overview */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
+        <div data-tour="analytics-charts" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
           <div className="card" style={{ background: 'linear-gradient(135deg, #1B3A5C 0%, #2E86C1 100%)', color: '#fff' }}>
             <div style={{ fontSize: 36, fontWeight: 800 }}>{filteredAssessments.length}</div>
             <div style={{ fontSize: 14, opacity: 0.9 }}>{t('analytics.stats.totalCustomers')}</div>

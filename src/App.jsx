@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CollaborationProvider } from './contexts/CollaborationContext';
+import { TourProvider } from './contexts/TourContext';
 import { LanguageProvider } from './i18n';
 import { supabase } from './lib/supabase';
 import Login from './components/Login';
@@ -9,6 +10,7 @@ import Dashboard from './components/Dashboard';
 import AIReadinessCheck from './components/AIReadinessCheck';
 import Analytics from './components/Analytics';
 import { AICatalog } from './components/AICatalog';
+import { TourGuide } from './components/TourGuide';
 
 // Wrapper component to load assessment by ID from URL
 function AssessmentWrapper() {
@@ -331,7 +333,9 @@ function AppContent() {
 
   // Render routes for authenticated users
   return (
-    <Routes>
+    <TourProvider>
+      <TourGuide />
+      <Routes>
       {/* Dashboard - Home */}
       <Route 
         path="/" 
@@ -400,6 +404,7 @@ function AppContent() {
         } 
       />
     </Routes>
+    </TourProvider>
   );
 }
 

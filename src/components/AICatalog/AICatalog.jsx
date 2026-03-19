@@ -278,15 +278,6 @@ export default function AICatalog() {
                   ? 'Daten werden täglich um 15:00 UTC aktualisiert'
                   : 'Data updated daily at 15:00 UTC'}
               </span>
-              <a
-                href="https://github.com/jwanOo/ai-readiness-check/actions/workflows/sync-sap-catalog.yml"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="manual-sync-link"
-                title={language === 'de' ? 'Manuellen Sync auslösen' : 'Trigger manual sync'}
-              >
-                {language === 'de' ? '▶ Jetzt synchronisieren' : '▶ Sync now'}
-              </a>
             </div>
           )}
 
@@ -338,7 +329,7 @@ export default function AICatalog() {
       )}
       
       {/* Filters */}
-      <div className="ai-catalog-filters">
+      <div className="ai-catalog-filters" data-tour="catalog-filters">
         <div className="search-box">
           <input
             type="text"
@@ -440,7 +431,7 @@ export default function AICatalog() {
       
       {/* Use Cases Grid/List */}
       {!loading && filteredUseCases.length > 0 && (
-        <div className={`ai-catalog-grid ${viewMode}`}>
+        <div className={`ai-catalog-grid ${viewMode}`} data-tour="use-case-grid">
           {filteredUseCases.map(useCase => (
             <UseCaseCard
               key={useCase.id}
