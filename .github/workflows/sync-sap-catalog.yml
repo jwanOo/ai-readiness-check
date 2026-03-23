@@ -1,9 +1,9 @@
 name: Sync SAP AI Catalog
 
 on:
-  # Run daily at 15:00 UTC (3 PM)
+  # Run weekly on Sundays at 15:00 UTC (reduced frequency since we use static data)
   schedule:
-    - cron: '0 15 * * *'
+    - cron: '0 15 * * 0'
 
   # Allow manual trigger from GitHub UI
   workflow_dispatch:
@@ -26,47 +26,51 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      # Note: The downloader.py script is not included in the repository.
+      # This workflow now just verifies and copies the existing CSV data.
+      # To update the SAP AI catalog data, manually update the CSV file
+      # in "Agents Discovery/sap_ai_raw_data.csv"
 
-      - name: Install Playwright
+      - name: Check if source CSV exists
         run: |
-          pip install playwright
-          playwright install chromium
-
-      - name: Run SAP downloader
-        run: |
-          cd "Agents Discovery"
-          python3 downloader.py
+          if [ -f "Agents Discovery/sap_ai_raw_data.csv" ]; then
+            echo "✅ Source CSV found"
+            echo "CSV_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "⚠️ Source CSV not found - skipping sync"
+            echo "CSV_EXISTS=false" >> $GITHUB_ENV
+          fi
 
       - name: Copy CSV to public folder
+        if: env.CSV_EXISTS == 'true'
         run: |
+          mkdir -p public
           cp "Agents Discovery/sap_ai_raw_data.csv" public/sap_ai_data.csv
 
       - name: Verify CSV
+        if: env.CSV_EXISTS == 'true'
         run: |
           echo "CSV file size: $(du -h public/sap_ai_data.csv | cut -f1)"
           echo "Total lines: $(wc -l < public/sap_ai_data.csv)"
-          echo "AI Agents: $(grep -c 'AI Agent' public/sap_ai_data.csv)"
-          echo "AI Features: $(grep -c 'AI Feature' public/sap_ai_data.csv)"
+          echo "AI Agents: $(grep -c 'AI Agent' public/sap_ai_data.csv || echo 0)"
+          echo "AI Features: $(grep -c 'AI Feature' public/sap_ai_data.csv || echo 0)"
 
       - name: Commit and push if changed
+        if: env.CSV_EXISTS == 'true'
         run: |
           git config --global user.name 'GitHub Actions Bot'
           git config --global user.email 'actions@github.com'
-          git add public/sap_ai_data.csv "Agents Discovery/sap_ai_raw_data.csv"
+          git add public/sap_ai_data.csv
 
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
             git commit -m "chore: update SAP AI catalog data [skip ci]
 
-            - Updated from SAP Discovery Center
+            - Synced from Agents Discovery folder
             - Total use cases: $(wc -l < public/sap_ai_data.csv | tr -d ' ')
-            - AI Agents: $(grep -c 'AI Agent' public/sap_ai_data.csv)
-            - AI Features: $(grep -c 'AI Feature' public/sap_ai_data.csv)
+            - AI Agents: $(grep -c 'AI Agent' public/sap_ai_data.csv || echo 0)
+            - AI Features: $(grep -c 'AI Feature' public/sap_ai_data.csv || echo 0)
 
             Co-Authored-By: GitHub Actions <actions@github.com>"
             git push
@@ -76,9 +80,17 @@ jobs:
         run: |
           echo "## Sync Summary 📊" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Total use cases:** $(expr $(wc -l < public/sap_ai_data.csv) - 1)" >> $GITHUB_STEP_SUMMARY
-          echo "- **AI Agents:** $(grep -c 'AI Agent' public/sap_ai_data.csv)" >> $GITHUB_STEP_SUMMARY
-          echo "- **AI Features:** $(grep -c 'AI Feature' public/sap_ai_data.csv)" >> $GITHUB_STEP_SUMMARY
-          echo "- **File size:** $(du -h public/sap_ai_data.csv | cut -f1)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Sync completed successfully!" >> $GITHUB_STEP_SUMMARY
+          if [ "$CSV_EXISTS" == "true" ]; then
+            echo "- **Total use cases:** $(expr $(wc -l < public/sap_ai_data.csv) - 1)" >> $GITHUB_STEP_SUMMARY
+            echo "- **AI Agents:** $(grep -c 'AI Agent' public/sap_ai_data.csv || echo 0)" >> $GITHUB_STEP_SUMMARY
+            echo "- **AI Features:** $(grep -c 'AI Feature' public/sap_ai_data.csv || echo 0)" >> $GITHUB_STEP_SUMMARY
+            echo "- **File size:** $(du -h public/sap_ai_data.csv | cut -f1)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ Sync completed successfully!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Source CSV not found in repository." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "To update the SAP AI catalog:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Add the CSV file to \`Agents Discovery/sap_ai_raw_data.csv\`" >> $GITHUB_STEP_SUMMARY
+            echo "2. Re-run this workflow" >> $GITHUB_STEP_SUMMARY
+          fi
