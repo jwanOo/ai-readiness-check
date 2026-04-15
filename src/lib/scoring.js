@@ -9,6 +9,110 @@
 
 import { supabase } from './supabase';
 
+// ═══════════════════════════════════════════════════════════════
+// SCORE NORMALIZATION UTILITIES
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Normalize a score to be within 0-100 range
+ * Handles edge cases like NaN, Infinity, negative values, and >100 values
+ * 
+ * @param {number} score - Raw score value
+ * @param {Object} options - Optional configuration
+ * @param {number} options.min - Minimum value (default: 0)
+ * @param {number} options.max - Maximum value (default: 100)
+ * @param {number} options.fallback - Value to use for invalid inputs (default: 0)
+ * @returns {number} - Normalized score between min and max
+ */
+export function normalizeScore(score, options = {}) {
+  const { min = 0, max = 100, fallback = 0 } = options;
+  
+  // Handle invalid inputs
+  if (score === null || score === undefined || typeof score !== 'number' || !isFinite(score)) {
+    return fallback;
+  }
+  
+  // Clamp to range
+  return Math.round(Math.min(max, Math.max(min, score)));
+}
+
+/**
+ * Normalize an entire scores object
+ * @param {Object} scores - Object with score properties (sap, btp, data, overall, etc.)
+ * @returns {Object} - Normalized scores object
+ */
+export function normalizeScores(scores) {
+  if (!scores || typeof scores !== 'object') {
+    return { sap: 0, btp: 0, data: 0, overall: 0 };
+  }
+  
+  return {
+    sap: normalizeScore(scores.sap),
+    btp: normalizeScore(scores.btp),
+    data: normalizeScore(scores.data),
+    overall: normalizeScore(scores.overall),
+    // Preserve any additional properties but normalize them too
+    ...Object.fromEntries(
+      Object.entries(scores)
+        .filter(([key]) => !['sap', 'btp', 'data', 'overall', 'recommendations'].includes(key))
+        .map(([key, value]) => [key, typeof value === 'number' ? normalizeScore(value) : value])
+    ),
+    // Keep recommendations as-is
+    recommendations: scores.recommendations,
+  };
+}
+
+/**
+ * Safely calculate a percentage from count/total
+ * Prevents division by zero and ensures result is 0-100
+ * 
+ * @param {number} count - Numerator (answered questions, etc.)
+ * @param {number} total - Denominator (total questions, etc.)
+ * @returns {number} - Percentage between 0 and 100
+ */
+export function safePercentage(count, total) {
+  if (!total || total <= 0 || !isFinite(total)) return 0;
+  if (!count || count < 0 || !isFinite(count)) return 0;
+  
+  const percentage = (count / total) * 100;
+  return normalizeScore(percentage);
+}
+
+/**
+ * Validate scores and log warnings for debugging
+ * @param {Object} scores - Scores object to validate
+ * @param {string} context - Context string for logging
+ * @returns {boolean} - True if all scores are valid
+ */
+export function validateScores(scores, context = 'unknown') {
+  if (!scores) {
+    console.warn(`[SCORING] Invalid scores object in ${context}:`, scores);
+    return false;
+  }
+  
+  let isValid = true;
+  const issues = [];
+  
+  ['sap', 'btp', 'data', 'overall'].forEach(key => {
+    const value = scores[key];
+    if (value !== undefined) {
+      if (typeof value !== 'number' || !isFinite(value)) {
+        issues.push(`${key} is not a valid number: ${value}`);
+        isValid = false;
+      } else if (value < 0 || value > 100) {
+        issues.push(`${key} is out of range (0-100): ${value}`);
+        isValid = false;
+      }
+    }
+  });
+  
+  if (!isValid) {
+    console.warn(`[SCORING] Score validation failed in ${context}:`, issues, scores);
+  }
+  
+  return isValid;
+}
+
 // Supabase Edge Function URL for server-side scoring
 const COMPUTE_SCORE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/compute-score`;
 

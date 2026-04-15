@@ -1,15 +1,19 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useLanguage } from '../i18n';
+import { normalizeScore, safePercentage } from '../lib/scoring';
 
 /**
  * Heat Map Visualization Component
  * 
  * Displays a visual heat map of AI readiness scores across different categories
  * with color gradients from red (low) to green (high).
+ * 
+ * All scores are normalized to 0-100 range to prevent display issues.
  */
 
-// Color utility functions
-const getHeatColor = (score) => {
+// Color utility functions - always normalize score first
+const getHeatColor = (rawScore) => {
+  const score = normalizeScore(rawScore);
   if (score >= 66) return { bg: '#EAFAF1', border: '#27AE60', text: '#1E8449', gradient: 'linear-gradient(135deg, #27AE60, #2ECC71)' };
   if (score >= 33) return { bg: '#FEF9E7', border: '#F39C12', text: '#B7950B', gradient: 'linear-gradient(135deg, #F39C12, #F1C40F)' };
   return { bg: '#FDEDEC', border: '#E74C3C', text: '#C0392B', gradient: 'linear-gradient(135deg, #E74C3C, #EC7063)' };
@@ -519,14 +523,29 @@ export default function HeatMap({
     
     // Add industry-specific category if available
     if (industry) {
-      // Calculate industry score based on answered industry questions
-      const industryAnswers = Object.entries(answers).filter(([k]) => k.startsWith('ind_'));
-      const answeredIndustryQuestions = industryAnswers.filter(([_, v]) => v?.trim()).length;
-      const totalIndustryQuestions = industry.specificQuestions?.reduce((sum, sq) => sum + sq.questions.length, 0) || 1;
-      const industryCompletionScore = Math.round((answeredIndustryQuestions / totalIndustryQuestions) * 100);
+      // Calculate overall industry readiness based on main scores (normalized)
+      const sapScore = normalizeScore(scores.sap);
+      const btpScore = normalizeScore(scores.btp);
+      const dataScore = normalizeScore(scores.data);
+      const industryReadinessScore = normalizeScore(Math.round((sapScore + btpScore + dataScore) / 3));
       
-      // Calculate overall industry readiness based on main scores
-      const industryReadinessScore = Math.round((scores.sap + scores.btp + scores.data) / 3) || 0;
+      // Calculate subcategory scores with proper validation
+      const subcategories = (industry.specificQuestions?.slice(0, 3) || []).map((sq, idx) => {
+        // Calculate score for each industry section based on answered questions
+        const sectionAnswers = Object.entries(answers).filter(([k]) => k.startsWith(`ind_${idx}_`));
+        const answeredCount = sectionAnswers.filter(([_, v]) => v?.trim()).length;
+        const totalCount = sq.questions?.length || 0;
+        
+        // Use safePercentage to prevent >100% values
+        const sectionScore = safePercentage(answeredCount, totalCount);
+        
+        return {
+          label: sq.section || `Section ${idx + 1}`,
+          score: sectionScore,
+          // Add metadata for debugging
+          _debug: { answeredCount, totalCount },
+        };
+      });
       
       categories.push({
         id: 'industry',
@@ -534,16 +553,7 @@ export default function HeatMap({
         label: industry.label || (language === 'de' ? 'Branchenspezifisch' : 'Industry-specific'),
         description: industry.desc || '',
         score: industryReadinessScore,
-        subcategories: industry.specificQuestions?.slice(0, 3).map((sq, idx) => {
-          // Calculate score for each industry section based on answered questions
-          const sectionAnswers = Object.entries(answers).filter(([k]) => k.startsWith(`ind_${idx}_`));
-          const answeredCount = sectionAnswers.filter(([_, v]) => v?.trim()).length;
-          const totalCount = sq.questions?.length || 1;
-          return {
-            label: sq.section,
-            score: Math.round((answeredCount / totalCount) * 100),
-          };
-        }) || [],
+        subcategories,
         recommendations: [],
       });
     }
