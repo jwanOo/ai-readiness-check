@@ -10,6 +10,8 @@ import { generatePowerPoint } from '../lib/pptxExport';
 import Recommendations from './Recommendations';
 import SectionAIPanel from './SectionAIPanel';
 import SectionRecommendations from './SectionRecommendations';
+import SAPAIHints from './SAPAIHints';
+import SAPAIRecommendations from './SAPAIRecommendations';
 import HeatMap from './HeatMap';
 import RiskMatrix from './RiskMatrix';
 import PresenceIndicator, { TypingIndicator } from './PresenceIndicator';
@@ -1019,6 +1021,7 @@ export default function AIReadinessCheck({
   const [lastSaved, setLastSaved] = useState(null);
   const [collaborators, setCollaborators] = useState([]);
   const [sectionAssignments, setSectionAssignments] = useState({});
+  const [selectedAIUseCases, setSelectedAIUseCases] = useState([]); // For SAP AI recommendations
   const contentRef = useRef(null);
   const saveTimeoutRef = useRef(null);
   
@@ -2139,6 +2142,22 @@ export default function AIReadinessCheck({
                       </div>
                     </div>
                   </div>
+                )}
+                
+                {/* SAP AI Hints - Show relevant AI features for this section */}
+                {selectedIndustry && (
+                  <SAPAIHints
+                    sectionId={sec.id}
+                    industry={selectedIndustry}
+                    answers={answers}
+                    selectedUseCases={selectedAIUseCases}
+                    onSelectUseCase={(useCase) => {
+                      setSelectedAIUseCases(prev => [...prev, useCase]);
+                    }}
+                    onDeselectUseCase={(useCase) => {
+                      setSelectedAIUseCases(prev => prev.filter(uc => uc.id !== useCase.id));
+                    }}
+                  />
                 )}
                 
                 {sec.questions.map((q,qi)=>(
