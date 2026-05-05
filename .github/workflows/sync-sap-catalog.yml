@@ -1,9 +1,9 @@
 name: Sync SAP AI Catalog
 
 on:
-  # Run weekly on Sundays at 15:00 UTC (reduced frequency since we use static data)
+  # Run daily at 15:00 UTC (17:00 CET / 16:00 CEST)
   schedule:
-    - cron: '0 15 * * 0'
+    - cron: '0 15 * * *'
 
   # Allow manual trigger from GitHub UI
   workflow_dispatch:
@@ -19,6 +19,7 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -26,19 +27,46 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Note: The downloader.py script is not included in the repository.
-      # This workflow now just verifies and copies the existing CSV data.
-      # To update the SAP AI catalog data, manually update the CSV file
-      # in "Agents Discovery/sap_ai_raw_data.csv"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Check if source CSV exists
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright
+          playwright install chromium
+          playwright install-deps chromium
+
+      - name: Run SAP AI Catalog downloader
+        id: download
+        run: |
+          cd "Agents Discovery"
+          python downloader.py
+        continue-on-error: true
+
+      - name: Check download result
         run: |
           if [ -f "Agents Discovery/sap_ai_raw_data.csv" ]; then
-            echo "✅ Source CSV found"
+            # Check if file was recently modified (within last 5 minutes)
+            FILE_MOD_TIME=$(stat -c %Y "Agents Discovery/sap_ai_raw_data.csv" 2>/dev/null || stat -f %m "Agents Discovery/sap_ai_raw_data.csv")
+            CURRENT_TIME=$(date +%s)
+            TIME_DIFF=$((CURRENT_TIME - FILE_MOD_TIME))
+            
+            if [ $TIME_DIFF -lt 300 ]; then
+              echo "✅ Fresh CSV downloaded successfully"
+              echo "DOWNLOAD_SUCCESS=true" >> $GITHUB_ENV
+            else
+              echo "⚠️ CSV exists but was not updated (file is $TIME_DIFF seconds old)"
+              echo "DOWNLOAD_SUCCESS=false" >> $GITHUB_ENV
+            fi
+            
             echo "CSV_EXISTS=true" >> $GITHUB_ENV
           else
-            echo "⚠️ Source CSV not found - skipping sync"
+            echo "❌ CSV file not found"
             echo "CSV_EXISTS=false" >> $GITHUB_ENV
+            echo "DOWNLOAD_SUCCESS=false" >> $GITHUB_ENV
           fi
 
       - name: Copy CSV to public folder
@@ -46,51 +74,88 @@ jobs:
         run: |
           mkdir -p public
           cp "Agents Discovery/sap_ai_raw_data.csv" public/sap_ai_data.csv
+          echo "📋 Copied CSV to public folder"
 
-      - name: Verify CSV
+      - name: Verify CSV content
         if: env.CSV_EXISTS == 'true'
         run: |
-          echo "CSV file size: $(du -h public/sap_ai_data.csv | cut -f1)"
-          echo "Total lines: $(wc -l < public/sap_ai_data.csv)"
-          echo "AI Agents: $(grep -c 'AI Agent' public/sap_ai_data.csv || echo 0)"
-          echo "AI Features: $(grep -c 'AI Feature' public/sap_ai_data.csv || echo 0)"
+          echo "📊 CSV Statistics:"
+          echo "  File size: $(du -h public/sap_ai_data.csv | cut -f1)"
+          TOTAL_LINES=$(wc -l < public/sap_ai_data.csv)
+          echo "  Total lines: $TOTAL_LINES"
+          echo "  Total use cases: $((TOTAL_LINES - 1))"
+          echo "  AI Agents: $(grep -c '"AI Agent"' public/sap_ai_data.csv || echo 0)"
+          echo "  AI Features: $(grep -c '"AI Feature"' public/sap_ai_data.csv || echo 0)"
+          
+          # Save stats for commit message
+          echo "TOTAL_CASES=$((TOTAL_LINES - 1))" >> $GITHUB_ENV
+          echo "AI_AGENTS=$(grep -c '"AI Agent"' public/sap_ai_data.csv || echo 0)" >> $GITHUB_ENV
+          echo "AI_FEATURES=$(grep -c '"AI Feature"' public/sap_ai_data.csv || echo 0)" >> $GITHUB_ENV
 
-      - name: Commit and push if changed
+      - name: Commit and push changes
         if: env.CSV_EXISTS == 'true'
         run: |
           git config --global user.name 'GitHub Actions Bot'
           git config --global user.email 'actions@github.com'
+          
+          # Add both CSV files
+          git add "Agents Discovery/sap_ai_raw_data.csv"
           git add public/sap_ai_data.csv
 
           if git diff --staged --quiet; then
-            echo "No changes to commit"
+            echo "✅ No changes to commit - data is already up to date"
           else
-            git commit -m "chore: update SAP AI catalog data [skip ci]
+            SYNC_DATE=$(date -u +"%Y-%m-%d %H:%M UTC")
+            git commit -m "chore: sync SAP AI catalog data - $SYNC_DATE
 
-            - Synced from Agents Discovery folder
-            - Total use cases: $(wc -l < public/sap_ai_data.csv | tr -d ' ')
-            - AI Agents: $(grep -c 'AI Agent' public/sap_ai_data.csv || echo 0)
-            - AI Features: $(grep -c 'AI Feature' public/sap_ai_data.csv || echo 0)
-
-            Co-Authored-By: GitHub Actions <actions@github.com>"
+            📊 SAP AI Catalog Update:
+            - Total use cases: ${{ env.TOTAL_CASES }}
+            - AI Agents: ${{ env.AI_AGENTS }}
+            - AI Features: ${{ env.AI_FEATURES }}
+            - Source: https://discovery-center.cloud.sap/ai-catalog/
+            
+            🤖 Automated daily sync by GitHub Actions"
+            
             git push
+            echo "✅ Changes committed and pushed"
           fi
 
-      - name: Create sync summary
+      - name: Create workflow summary
         run: |
-          echo "## Sync Summary 📊" >> $GITHUB_STEP_SUMMARY
+          echo "## 🤖 SAP AI Catalog Sync Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "$CSV_EXISTS" == "true" ]; then
-            echo "- **Total use cases:** $(expr $(wc -l < public/sap_ai_data.csv) - 1)" >> $GITHUB_STEP_SUMMARY
-            echo "- **AI Agents:** $(grep -c 'AI Agent' public/sap_ai_data.csv || echo 0)" >> $GITHUB_STEP_SUMMARY
-            echo "- **AI Features:** $(grep -c 'AI Feature' public/sap_ai_data.csv || echo 0)" >> $GITHUB_STEP_SUMMARY
-            echo "- **File size:** $(du -h public/sap_ai_data.csv | cut -f1)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ Sync completed successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "**Sync Date:** $(date -u +"%Y-%m-%d %H:%M UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ env.DOWNLOAD_SUCCESS }}" == "true" ]; then
+            echo "### ✅ Download Successful" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ Source CSV not found in repository." >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "To update the SAP AI catalog:" >> $GITHUB_STEP_SUMMARY
-            echo "1. Add the CSV file to \`Agents Discovery/sap_ai_raw_data.csv\`" >> $GITHUB_STEP_SUMMARY
-            echo "2. Re-run this workflow" >> $GITHUB_STEP_SUMMARY
+            echo "### ⚠️ Download Status: Using existing data" >> $GITHUB_STEP_SUMMARY
           fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ env.CSV_EXISTS }}" == "true" ]; then
+            echo "### 📊 Statistics" >> $GITHUB_STEP_SUMMARY
+            echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Total Use Cases | ${{ env.TOTAL_CASES }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| AI Agents | ${{ env.AI_AGENTS }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| AI Features | ${{ env.AI_FEATURES }} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔗 Source" >> $GITHUB_STEP_SUMMARY
+            echo "[SAP Discovery Center AI Catalog](https://discovery-center.cloud.sap/ai-catalog/)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Error" >> $GITHUB_STEP_SUMMARY
+            echo "CSV file not found. Please check the workflow logs." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload debug artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshots
+          path: |
+            Agents Discovery/*.png
+            Agents Discovery/*.log
+          retention-days: 7
