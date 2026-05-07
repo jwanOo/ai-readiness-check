@@ -2081,7 +2081,15 @@ export default function AIReadinessCheck({
                   </button>
                   <button className="btn" onClick={async () => {
                     try {
-                      await generatePowerPoint(assessment || { customer_name: answers['general_0'] || 'Customer', industry: selectedIndustry }, answers, language);
+                      // Get AI recommendations for export
+                      const { getRecommendedAIUseCases } = await import('../lib/aiRecommendationService');
+                      const aiRecs = await getRecommendedAIUseCases(
+                        assessment || { customer_name: answers['general_0'] || 'Customer', industry: selectedIndustry },
+                        answers,
+                        { limit: 20 }
+                      );
+                      console.log('[PowerPoint Export] AI Recommendations:', aiRecs?.length || 0);
+                      await generatePowerPoint(assessment || { customer_name: answers['general_0'] || 'Customer', industry: selectedIndustry }, answers, language, null, aiRecs);
                     } catch (error) {
                       console.error('PowerPoint generation error:', error);
                       alert(language === 'de' ? 'Fehler beim Erstellen der PowerPoint-Präsentation' : 'Error creating PowerPoint presentation');

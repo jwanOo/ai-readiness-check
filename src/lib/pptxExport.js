@@ -559,8 +559,168 @@ function addGanttTimeline(slide, phases, x, y, width, height, t) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SAP AI CATALOGUE RECOMMENDATIONS SLIDES
+// Creates multiple slides for AI recommendations from the catalogue
+// ═══════════════════════════════════════════════════════════════════════════
+
+function createAIRecommendationsSectionDivider(pptx, date, customerName, t, language) {
+  const slide = pptx.addSlide();
+  
+  // Background gradient
+  slide.addShape('rect', {
+    x: 0, y: 0, w: ADESSO.slideWidth, h: ADESSO.slideHeight,
+    fill: { color: ADESSO.colors.primary }
+  });
+  
+  // Section number
+  slide.addText('ANHANG', {
+    x: ADESSO.margin, y: 1.5, w: 2, h: 0.4,
+    fontSize: 12, fontFace: ADESSO.fonts.body, color: ADESSO.colors.accent, bold: true
+  });
+  
+  // Title
+  slide.addText(language === 'de' ? 'SAP AI Katalog Empfehlungen' : 'SAP AI Catalogue Recommendations', {
+    x: ADESSO.margin, y: 2.0, w: ADESSO.slideWidth - (ADESSO.margin * 2), h: 0.6,
+    fontSize: 28, fontFace: ADESSO.fonts.title, color: ADESSO.colors.white, bold: true
+  });
+  
+  // Subtitle
+  slide.addText(language === 'de' 
+    ? 'Empfohlene AI Features und Agents basierend auf Ihrer Bewertung' 
+    : 'Recommended AI Features and Agents based on your assessment', {
+    x: ADESSO.margin, y: 2.7, w: ADESSO.slideWidth - (ADESSO.margin * 2), h: 0.4,
+    fontSize: 14, fontFace: ADESSO.fonts.body, color: ADESSO.colors.lightBg
+  });
+  
+  addFooter(slide, pptx, date, customerName);
+}
+
+function createAIRecommendationsOverviewSlide(pptx, recommendations, date, customerName, t, language) {
+  const slide = createContentSlide(pptx, language === 'de' ? 'SAP AI Empfehlungen - Übersicht' : 'SAP AI Recommendations - Overview', date, customerName);
+  
+  // Stats
+  const agents = recommendations.filter(r => r.ai_type === 'AI Agent').length;
+  const features = recommendations.filter(r => r.ai_type === 'AI Feature').length;
+  const premium = recommendations.filter(r => r.commercial_type === 'Premium').length;
+  const base = recommendations.filter(r => r.commercial_type === 'Base').length;
+  
+  const stats = [
+    { value: recommendations.length.toString(), label: language === 'de' ? 'Empfehlungen' : 'Recommendations', color: ADESSO.colors.primary },
+    { value: agents.toString(), label: 'AI Agents', color: ADESSO.colors.purple },
+    { value: features.toString(), label: 'AI Features', color: ADESSO.colors.accent },
+    { value: premium.toString(), label: 'Premium', color: ADESSO.colors.warning },
+  ];
+  
+  stats.forEach((stat, i) => {
+    const x = ADESSO.margin + (i * 2.2);
+    slide.addShape('rect', { x, y: 1.0, w: 2, h: 0.9, fill: { color: ADESSO.colors.lightBg }, line: { color: stat.color, width: 2 } });
+    slide.addText(stat.value, { x, y: 1.1, w: 2, h: 0.4, fontSize: 24, fontFace: ADESSO.fonts.title, color: stat.color, bold: true, align: 'center' });
+    slide.addText(stat.label, { x, y: 1.5, w: 2, h: 0.25, fontSize: 9, fontFace: ADESSO.fonts.body, color: ADESSO.colors.lightText, align: 'center' });
+  });
+  
+  // Top recommendations table
+  slide.addText(language === 'de' ? 'Top Empfehlungen nach Match-Score:' : 'Top Recommendations by Match Score:', {
+    x: ADESSO.margin, y: 2.1, w: 5, h: 0.3, fontSize: 11, fontFace: ADESSO.fonts.title, color: ADESSO.colors.primary, bold: true
+  });
+  
+  const topRecs = recommendations.slice(0, 6);
+  topRecs.forEach((rec, i) => {
+    const y = 2.5 + (i * 0.4);
+    const typeIcon = rec.ai_type === 'AI Agent' ? '🤖' : '✨';
+    const scoreColor = rec.score >= 250 ? ADESSO.colors.success : rec.score >= 180 ? ADESSO.colors.accent : ADESSO.colors.warning;
+    
+    slide.addText(`${typeIcon} ${rec.name}`, { x: ADESSO.margin, y, w: 5.5, h: 0.3, fontSize: 9, fontFace: ADESSO.fonts.body, color: ADESSO.colors.text });
+    slide.addText(rec.product || '', { x: ADESSO.margin + 5.5, y, w: 2.5, h: 0.3, fontSize: 8, fontFace: ADESSO.fonts.body, color: ADESSO.colors.lightText });
+    slide.addText(`${rec.score}`, { x: ADESSO.margin + 8.2, y, w: 0.6, h: 0.3, fontSize: 10, fontFace: ADESSO.fonts.title, color: scoreColor, bold: true, align: 'right' });
+  });
+  
+  // Legend
+  slide.addText(language === 'de' ? '🤖 = AI Agent | ✨ = AI Feature | Score = Relevanz für Ihr Unternehmen' : '🤖 = AI Agent | ✨ = AI Feature | Score = Relevance for your company', {
+    x: ADESSO.margin, y: 4.6, w: ADESSO.slideWidth - (ADESSO.margin * 2), h: 0.25, fontSize: 8, fontFace: ADESSO.fonts.body, color: ADESSO.colors.muted
+  });
+}
+
+function createAIRecommendationsDetailSlide(pptx, recommendations, startIndex, date, customerName, t, language) {
+  const slide = createContentSlide(pptx, language === 'de' ? `SAP AI Empfehlungen (${startIndex + 1}-${Math.min(startIndex + 4, recommendations.length)})` : `SAP AI Recommendations (${startIndex + 1}-${Math.min(startIndex + 4, recommendations.length)})`, date, customerName);
+  
+  const pageRecs = recommendations.slice(startIndex, startIndex + 4);
+  
+  pageRecs.forEach((rec, i) => {
+    const y = 1.0 + (i * 1.0);
+    const typeIcon = rec.ai_type === 'AI Agent' ? '🤖' : '✨';
+    const typeColor = rec.ai_type === 'AI Agent' ? ADESSO.colors.purple : ADESSO.colors.accent;
+    const availColor = rec.availability === 'Generally Available' ? ADESSO.colors.success : rec.availability === 'Beta' ? ADESSO.colors.warning : ADESSO.colors.orange;
+    const scoreColor = rec.score >= 250 ? ADESSO.colors.success : rec.score >= 180 ? ADESSO.colors.accent : ADESSO.colors.warning;
+    
+    // Card background
+    slide.addShape('rect', { x: ADESSO.margin, y, w: ADESSO.slideWidth - (ADESSO.margin * 2), h: 0.9, fill: { color: ADESSO.colors.lightBg }, line: { color: 'E0E0E0', width: 1 } });
+    
+    // Type icon and name
+    slide.addText(`${typeIcon} ${rec.name}`, { x: ADESSO.margin + 0.15, y: y + 0.1, w: 5, h: 0.3, fontSize: 11, fontFace: ADESSO.fonts.title, color: ADESSO.colors.text, bold: true });
+    
+    // Score badge
+    slide.addShape('rect', { x: ADESSO.slideWidth - ADESSO.margin - 0.8, y: y + 0.1, w: 0.65, h: 0.3, fill: { color: scoreColor } });
+    slide.addText(`${rec.score}`, { x: ADESSO.slideWidth - ADESSO.margin - 0.8, y: y + 0.12, w: 0.65, h: 0.25, fontSize: 10, fontFace: ADESSO.fonts.title, color: ADESSO.colors.white, bold: true, align: 'center' });
+    
+    // Product
+    slide.addText(`📦 ${rec.product || 'SAP'}`, { x: ADESSO.margin + 0.15, y: y + 0.4, w: 3.5, h: 0.2, fontSize: 8, fontFace: ADESSO.fonts.body, color: ADESSO.colors.lightText });
+    
+    // Category
+    slide.addText(`📁 ${rec.product_category || ''}`, { x: ADESSO.margin + 3.7, y: y + 0.4, w: 2.5, h: 0.2, fontSize: 8, fontFace: ADESSO.fonts.body, color: ADESSO.colors.lightText });
+    
+    // Badges
+    const badgeY = y + 0.65;
+    
+    // Type badge
+    slide.addShape('rect', { x: ADESSO.margin + 0.15, y: badgeY, w: 0.8, h: 0.2, fill: { color: typeColor } });
+    slide.addText(rec.ai_type === 'AI Agent' ? 'Agent' : 'Feature', { x: ADESSO.margin + 0.15, y: badgeY, w: 0.8, h: 0.2, fontSize: 7, fontFace: ADESSO.fonts.body, color: ADESSO.colors.white, align: 'center' });
+    
+    // Availability badge
+    const availText = rec.availability === 'Generally Available' ? 'GA' : rec.availability === 'Beta' ? 'Beta' : 'EAC';
+    slide.addShape('rect', { x: ADESSO.margin + 1.05, y: badgeY, w: 0.5, h: 0.2, fill: { color: availColor } });
+    slide.addText(availText, { x: ADESSO.margin + 1.05, y: badgeY, w: 0.5, h: 0.2, fontSize: 7, fontFace: ADESSO.fonts.body, color: ADESSO.colors.white, align: 'center' });
+    
+    // Commercial badge
+    if (rec.commercial_type) {
+      const commColor = rec.commercial_type === 'Premium' ? ADESSO.colors.warning : ADESSO.colors.success;
+      slide.addShape('rect', { x: ADESSO.margin + 1.65, y: badgeY, w: 0.7, h: 0.2, fill: { color: commColor } });
+      slide.addText(rec.commercial_type, { x: ADESSO.margin + 1.65, y: badgeY, w: 0.7, h: 0.2, fontSize: 7, fontFace: ADESSO.fonts.body, color: ADESSO.colors.white, align: 'center' });
+    }
+    
+    // Match reasons
+    if (rec.matchReasons && rec.matchReasons.length > 0) {
+      const reasonLabels = {
+        product: '📦 Produkt',
+        industry: '🏢 Branche',
+        industry_usecase: '🎯 Use Case',
+        genai: '🤖 GenAI',
+        automation: '⚡ Automation',
+        keyword: '🔑 Keyword',
+      };
+      const reasons = rec.matchReasons.map(r => reasonLabels[r] || r).join(' • ');
+      slide.addText(reasons, { x: ADESSO.margin + 2.5, y: badgeY, w: 4, h: 0.2, fontSize: 7, fontFace: ADESSO.fonts.body, color: ADESSO.colors.muted });
+    }
+  });
+}
+
+function createAIRecommendationsSlides(pptx, recommendations, date, customerName, t, language) {
+  if (!recommendations || recommendations.length === 0) return;
+  
+  // Section divider
+  createAIRecommendationsSectionDivider(pptx, date, customerName, t, language);
+  
+  // Overview slide
+  createAIRecommendationsOverviewSlide(pptx, recommendations, date, customerName, t, language);
+  
+  // Detail slides (4 recommendations per slide)
+  for (let i = 0; i < recommendations.length; i += 4) {
+    createAIRecommendationsDetailSlide(pptx, recommendations, i, date, customerName, t, language);
+  }
+}
+
 // MAIN EXPORT FUNCTION
-export async function generatePowerPoint(assessment, answers, language = 'de', onProgress = null) {
+export async function generatePowerPoint(assessment, answers, language = 'de', onProgress = null, aiRecommendations = null) {
   try {
     const pptx = new PptxGenJS();
     const t = TEXTS[language] || TEXTS.de;
@@ -894,6 +1054,12 @@ export async function generatePowerPoint(assessment, answers, language = 'de', o
     srcSlide.addText(source.url, { x: ADESSO.margin + 0.15, y: 1.45 + (i * 0.35), w: 5, h: 0.15, fontSize: 7, fontFace: ADESSO.fonts.body, color: ADESSO.colors.accent });
   });
   srcSlide.addText(t.disclaimer + ' © adesso SE 2025', { x: ADESSO.margin, y: 4.1, w: ADESSO.slideWidth - (ADESSO.margin * 2), h: 0.4, fontSize: 8, fontFace: ADESSO.fonts.body, color: ADESSO.colors.muted, italic: true });
+  
+  // APPENDIX: SAP AI CATALOGUE RECOMMENDATIONS (if provided)
+  if (aiRecommendations && aiRecommendations.length > 0) {
+    console.log('[PowerPoint] Adding AI recommendations slides:', aiRecommendations.length);
+    createAIRecommendationsSlides(pptx, aiRecommendations, date, customerName, t, language);
+  }
   
   // SLIDE 22: CLOSING
   const closeSlide = pptx.addSlide();
