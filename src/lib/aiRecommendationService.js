@@ -2,10 +2,176 @@
    AI RECOMMENDATION SERVICE
    Matches SAP AI use cases to customer assessments
    Enhanced with intelligent scoring and AI-powered recommendations
+   
+   Features:
+   - Industry-specific AI needs mapping
+   - Assessment answer analysis for pain points and goals
+   - AI-powered personalized recommendation reasoning
+   - Web search integration for industry AI trends
    ═══════════════════════════════════════════════════════════════ */
 
 import { fetchUseCases, INDUSTRY_CATEGORY_MAP } from './sapAICatalogService';
 import { callAI } from './aiService';
+
+/**
+ * INDUSTRY-SPECIFIC AI NEEDS MAPPING
+ * Deep mapping of what each industry typically needs from AI
+ * Based on industry research and SAP best practices
+ */
+export const INDUSTRY_AI_NEEDS = {
+  insurance: {
+    primaryNeeds: ['fraud_detection', 'claims_automation', 'underwriting', 'customer_service', 'risk_assessment'],
+    painPoints: ['manual claims processing', 'fraud losses', 'slow underwriting', 'customer churn', 'regulatory compliance'],
+    aiUseCases: ['Intelligent Claims Processing', 'Fraud Detection', 'Automated Underwriting', 'Customer 360', 'Risk Analytics'],
+    keywords: ['claim', 'policy', 'premium', 'underwriting', 'fraud', 'risk', 'actuary', 'reinsurance', 'coverage'],
+    sapProducts: ['SAP S/4HANA', 'SAP Analytics Cloud', 'SAP Customer Data Platform', 'SAP Signavio'],
+    businessAreas: ['finance', 'service', 'analytics'],
+  },
+  banking: {
+    primaryNeeds: ['fraud_detection', 'credit_scoring', 'aml_compliance', 'customer_analytics', 'process_automation'],
+    painPoints: ['fraud losses', 'manual compliance', 'slow loan processing', 'customer experience', 'regulatory reporting'],
+    aiUseCases: ['Fraud Detection', 'Credit Risk Assessment', 'AML Screening', 'Customer Insights', 'Intelligent Automation'],
+    keywords: ['loan', 'credit', 'deposit', 'payment', 'compliance', 'aml', 'kyc', 'fraud', 'risk', 'treasury'],
+    sapProducts: ['SAP S/4HANA', 'SAP Analytics Cloud', 'SAP Signavio', 'SAP Build Process Automation'],
+    businessAreas: ['finance', 'analytics', 'service'],
+  },
+  healthcare: {
+    primaryNeeds: ['patient_care', 'clinical_decision', 'resource_optimization', 'billing_automation', 'compliance'],
+    painPoints: ['staff shortages', 'billing errors', 'patient wait times', 'documentation burden', 'regulatory compliance'],
+    aiUseCases: ['Clinical Decision Support', 'Patient Flow Optimization', 'Revenue Cycle Management', 'Workforce Planning'],
+    keywords: ['patient', 'clinical', 'diagnosis', 'treatment', 'hospital', 'physician', 'nurse', 'billing', 'ehr', 'emr'],
+    sapProducts: ['SAP S/4HANA', 'SAP SuccessFactors', 'SAP Analytics Cloud', 'SAP Signavio'],
+    businessAreas: ['hr', 'finance', 'service'],
+  },
+  automotive: {
+    primaryNeeds: ['supply_chain', 'quality_control', 'predictive_maintenance', 'demand_forecasting', 'production_optimization'],
+    painPoints: ['supply chain disruptions', 'quality issues', 'production downtime', 'inventory costs', 'demand volatility'],
+    aiUseCases: ['Supply Chain Risk Management', 'Quality Inspection', 'Predictive Maintenance', 'Demand Sensing'],
+    keywords: ['vehicle', 'production', 'assembly', 'supplier', 'parts', 'quality', 'oem', 'tier', 'logistics'],
+    sapProducts: ['SAP S/4HANA', 'SAP IBP', 'SAP Digital Manufacturing', 'SAP Ariba'],
+    businessAreas: ['supply_chain', 'manufacturing', 'procurement'],
+  },
+  manufacturing: {
+    primaryNeeds: ['predictive_maintenance', 'quality_control', 'production_planning', 'supply_chain', 'energy_optimization'],
+    painPoints: ['unplanned downtime', 'quality defects', 'production inefficiency', 'supply disruptions', 'energy costs'],
+    aiUseCases: ['Predictive Maintenance', 'Visual Quality Inspection', 'Production Scheduling', 'Energy Management'],
+    keywords: ['production', 'machine', 'equipment', 'maintenance', 'quality', 'shop floor', 'oee', 'downtime'],
+    sapProducts: ['SAP S/4HANA', 'SAP Digital Manufacturing', 'SAP IBP', 'SAP Asset Performance Management'],
+    businessAreas: ['manufacturing', 'supply_chain', 'analytics'],
+  },
+  retail: {
+    primaryNeeds: ['demand_forecasting', 'personalization', 'inventory_optimization', 'customer_analytics', 'pricing'],
+    painPoints: ['stockouts', 'overstock', 'customer churn', 'margin pressure', 'omnichannel complexity'],
+    aiUseCases: ['Demand Forecasting', 'Personalized Recommendations', 'Dynamic Pricing', 'Inventory Optimization'],
+    keywords: ['store', 'customer', 'inventory', 'merchandise', 'promotion', 'pricing', 'omnichannel', 'e-commerce'],
+    sapProducts: ['SAP S/4HANA Retail', 'SAP Customer Data Platform', 'SAP Commerce Cloud', 'SAP Analytics Cloud'],
+    businessAreas: ['sales', 'supply_chain', 'analytics'],
+  },
+  energy: {
+    primaryNeeds: ['grid_optimization', 'predictive_maintenance', 'demand_forecasting', 'asset_management', 'sustainability'],
+    painPoints: ['grid instability', 'asset failures', 'demand volatility', 'regulatory compliance', 'renewable integration'],
+    aiUseCases: ['Grid Optimization', 'Predictive Maintenance', 'Load Forecasting', 'Asset Performance Management'],
+    keywords: ['grid', 'power', 'energy', 'utility', 'meter', 'renewable', 'generation', 'distribution', 'transmission'],
+    sapProducts: ['SAP S/4HANA Utilities', 'SAP Asset Performance Management', 'SAP Analytics Cloud'],
+    businessAreas: ['supply_chain', 'analytics', 'finance'],
+  },
+  publicSector: {
+    primaryNeeds: ['citizen_services', 'process_automation', 'fraud_detection', 'resource_optimization', 'compliance'],
+    painPoints: ['citizen experience', 'manual processes', 'budget constraints', 'fraud/waste', 'legacy systems'],
+    aiUseCases: ['Citizen Service Automation', 'Fraud Detection', 'Resource Planning', 'Document Processing'],
+    keywords: ['citizen', 'government', 'public', 'agency', 'compliance', 'budget', 'grant', 'permit', 'license'],
+    sapProducts: ['SAP S/4HANA', 'SAP Build Process Automation', 'SAP Analytics Cloud', 'SAP Signavio'],
+    businessAreas: ['service', 'finance', 'hr'],
+  },
+  lifeSciences: {
+    primaryNeeds: ['drug_discovery', 'clinical_trials', 'quality_compliance', 'supply_chain', 'regulatory'],
+    painPoints: ['R&D costs', 'trial delays', 'compliance burden', 'supply chain complexity', 'serialization'],
+    aiUseCases: ['Drug Discovery', 'Clinical Trial Optimization', 'Quality Management', 'Track & Trace'],
+    keywords: ['pharma', 'drug', 'clinical', 'trial', 'fda', 'gxp', 'batch', 'serialization', 'validation'],
+    sapProducts: ['SAP S/4HANA', 'SAP ATTP', 'SAP EHS', 'SAP Analytics Cloud'],
+    businessAreas: ['manufacturing', 'supply_chain', 'analytics'],
+  },
+  lottery: {
+    primaryNeeds: ['fraud_detection', 'player_protection', 'customer_analytics', 'operations_optimization', 'compliance'],
+    painPoints: ['fraud', 'responsible gaming', 'player engagement', 'operational efficiency', 'regulatory compliance'],
+    aiUseCases: ['Fraud Detection', 'Responsible Gaming', 'Player Analytics', 'Operations Optimization'],
+    keywords: ['lottery', 'gaming', 'player', 'ticket', 'draw', 'jackpot', 'responsible', 'fraud'],
+    sapProducts: ['SAP S/4HANA', 'SAP Analytics Cloud', 'SAP Customer Data Platform'],
+    businessAreas: ['analytics', 'service', 'finance'],
+  },
+  transport: {
+    primaryNeeds: ['route_optimization', 'predictive_maintenance', 'demand_forecasting', 'fleet_management', 'customer_service'],
+    painPoints: ['delays', 'maintenance costs', 'capacity planning', 'customer complaints', 'fuel costs'],
+    aiUseCases: ['Route Optimization', 'Predictive Maintenance', 'Demand Forecasting', 'Fleet Management'],
+    keywords: ['transport', 'logistics', 'fleet', 'route', 'delivery', 'shipment', 'carrier', 'freight'],
+    sapProducts: ['SAP TM', 'SAP S/4HANA', 'SAP Asset Performance Management', 'SAP Analytics Cloud'],
+    businessAreas: ['supply_chain', 'service', 'analytics'],
+  },
+  media: {
+    primaryNeeds: ['content_personalization', 'audience_analytics', 'ad_optimization', 'content_creation', 'subscription_management'],
+    painPoints: ['content discovery', 'audience engagement', 'ad revenue', 'churn', 'content costs'],
+    aiUseCases: ['Content Recommendation', 'Audience Analytics', 'Ad Optimization', 'Churn Prediction'],
+    keywords: ['content', 'media', 'audience', 'subscriber', 'advertising', 'streaming', 'publishing'],
+    sapProducts: ['SAP Customer Data Platform', 'SAP Analytics Cloud', 'SAP Emarsys'],
+    businessAreas: ['sales', 'analytics', 'service'],
+  },
+  defense: {
+    primaryNeeds: ['logistics_optimization', 'predictive_maintenance', 'resource_planning', 'security', 'compliance'],
+    painPoints: ['readiness', 'maintenance costs', 'supply chain', 'security', 'budget constraints'],
+    aiUseCases: ['Logistics Optimization', 'Predictive Maintenance', 'Resource Planning', 'Security Analytics'],
+    keywords: ['defense', 'military', 'logistics', 'readiness', 'maintenance', 'security', 'classified'],
+    sapProducts: ['SAP S/4HANA Defense', 'SAP Asset Performance Management', 'SAP Analytics Cloud'],
+    businessAreas: ['supply_chain', 'manufacturing', 'hr'],
+  },
+  foodBeverage: {
+    primaryNeeds: ['demand_forecasting', 'quality_control', 'supply_chain', 'traceability', 'sustainability'],
+    painPoints: ['waste', 'quality issues', 'supply disruptions', 'traceability', 'compliance'],
+    aiUseCases: ['Demand Forecasting', 'Quality Inspection', 'Supply Chain Optimization', 'Traceability'],
+    keywords: ['food', 'beverage', 'recipe', 'batch', 'quality', 'shelf life', 'traceability', 'recall'],
+    sapProducts: ['SAP S/4HANA', 'SAP IBP', 'SAP Digital Manufacturing', 'SAP Analytics Cloud'],
+    businessAreas: ['manufacturing', 'supply_chain', 'analytics'],
+  },
+  construction: {
+    primaryNeeds: ['project_management', 'resource_optimization', 'cost_control', 'safety', 'sustainability'],
+    painPoints: ['project delays', 'cost overruns', 'resource allocation', 'safety incidents', 'documentation'],
+    aiUseCases: ['Project Analytics', 'Resource Optimization', 'Cost Prediction', 'Safety Analytics'],
+    keywords: ['construction', 'project', 'building', 'site', 'contractor', 'material', 'schedule'],
+    sapProducts: ['SAP S/4HANA', 'SAP Analytics Cloud', 'SAP Build Process Automation'],
+    businessAreas: ['finance', 'supply_chain', 'hr'],
+  },
+  tradeFairsSports: {
+    primaryNeeds: ['event_planning', 'customer_engagement', 'revenue_optimization', 'operations', 'analytics'],
+    painPoints: ['attendance prediction', 'customer experience', 'revenue management', 'operations', 'sponsorship'],
+    aiUseCases: ['Demand Forecasting', 'Customer Analytics', 'Revenue Management', 'Operations Optimization'],
+    keywords: ['event', 'venue', 'ticket', 'attendee', 'sponsor', 'exhibition', 'sports', 'fan'],
+    sapProducts: ['SAP S/4HANA', 'SAP Customer Data Platform', 'SAP Analytics Cloud'],
+    businessAreas: ['sales', 'service', 'analytics'],
+  },
+  telecom: {
+    primaryNeeds: ['network_optimization', 'customer_analytics', 'churn_prediction', 'fraud_detection', 'service_automation'],
+    painPoints: ['network issues', 'customer churn', 'fraud', 'service costs', 'competition'],
+    aiUseCases: ['Network Optimization', 'Churn Prediction', 'Fraud Detection', 'Service Automation'],
+    keywords: ['network', 'telecom', 'subscriber', 'bandwidth', 'coverage', '5g', 'fiber', 'mobile'],
+    sapProducts: ['SAP S/4HANA', 'SAP Customer Data Platform', 'SAP Analytics Cloud', 'SAP Signavio'],
+    businessAreas: ['service', 'analytics', 'sales'],
+  },
+  professionalServices: {
+    primaryNeeds: ['resource_management', 'project_analytics', 'knowledge_management', 'client_insights', 'automation'],
+    painPoints: ['utilization', 'project profitability', 'knowledge sharing', 'client retention', 'admin overhead'],
+    aiUseCases: ['Resource Optimization', 'Project Analytics', 'Knowledge Management', 'Client Insights'],
+    keywords: ['consulting', 'project', 'resource', 'utilization', 'billable', 'engagement', 'proposal'],
+    sapProducts: ['SAP S/4HANA', 'SAP SuccessFactors', 'SAP Analytics Cloud', 'SAP Build'],
+    businessAreas: ['hr', 'finance', 'analytics'],
+  },
+  chemical: {
+    primaryNeeds: ['process_optimization', 'quality_control', 'safety_compliance', 'supply_chain', 'sustainability'],
+    painPoints: ['yield optimization', 'quality issues', 'safety', 'regulatory compliance', 'energy costs'],
+    aiUseCases: ['Process Optimization', 'Quality Prediction', 'Safety Analytics', 'Energy Management'],
+    keywords: ['chemical', 'process', 'batch', 'formula', 'hazardous', 'ehs', 'yield', 'reactor'],
+    sapProducts: ['SAP S/4HANA', 'SAP EHS', 'SAP Digital Manufacturing', 'SAP Analytics Cloud'],
+    businessAreas: ['manufacturing', 'supply_chain', 'analytics'],
+  },
+};
 
 /**
  * SAP Products that can be detected in assessment answers

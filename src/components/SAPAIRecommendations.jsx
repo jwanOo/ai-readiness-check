@@ -10,6 +10,8 @@ import {
   formatRecommendation,
   generateAIEstimatorURL,
   exportRecommendationsSummary,
+  INDUSTRY_AI_NEEDS,
+  getAIPoweredRecommendations,
 } from '../lib/aiRecommendationService';
 import {
   PRODUCT_CATEGORIES,
