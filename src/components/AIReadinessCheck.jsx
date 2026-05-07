@@ -2144,22 +2144,6 @@ export default function AIReadinessCheck({
                   </div>
                 )}
                 
-                {/* SAP AI Hints - Show relevant AI features for this section */}
-                {selectedIndustry && (
-                  <SAPAIHints
-                    sectionId={sec.id}
-                    industry={selectedIndustry}
-                    answers={answers}
-                    selectedUseCases={selectedAIUseCases}
-                    onSelectUseCase={(useCase) => {
-                      setSelectedAIUseCases(prev => [...prev, useCase]);
-                    }}
-                    onDeselectUseCase={(useCase) => {
-                      setSelectedAIUseCases(prev => prev.filter(uc => uc.id !== useCase.id));
-                    }}
-                  />
-                )}
-                
                 {sec.questions.map((q,qi)=>(
                   <div key={qi} style={{
                     marginBottom:16,
