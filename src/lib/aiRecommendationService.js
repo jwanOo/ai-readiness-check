@@ -353,55 +353,315 @@ export async function getRecommendedAIUseCases(assessment, answers, options = {}
 }
 
 /**
+ * Enhanced section to category and keyword mapping
+ * Maps assessment sections to relevant SAP AI use cases
+ */
+const SECTION_AI_MAPPING = {
+  general: {
+    categories: [],
+    keywords: [],
+    preferAgents: false,
+    description: 'General company information',
+  },
+  landscape: {
+    categories: ['Cloud ERP applications', 'Technology Platform', 'Financial Management'],
+    keywords: ['s/4hana', 'erp', 'sap', 'system', 'landscape', 'integration'],
+    preferAgents: false,
+    description: 'SAP system landscape',
+  },
+  licensing: {
+    categories: ['Cloud ERP applications', 'Technology Platform'],
+    keywords: ['license', 'cloud', 'subscription', 'rise', 'grow'],
+    preferAgents: false,
+    description: 'Licensing and cloud strategy',
+  },
+  btp: {
+    categories: ['Technology Platform'],
+    keywords: ['btp', 'platform', 'integration', 'extension', 'build', 'ai core'],
+    preferAgents: true,
+    description: 'SAP BTP and platform services',
+  },
+  cloud: {
+    categories: ['Cloud ERP applications', 'Technology Platform'],
+    keywords: ['cloud', 'migration', 'hybrid', 'integration'],
+    preferAgents: false,
+    description: 'Cloud and integration strategy',
+  },
+  aiSap: {
+    categories: ['Technology Platform', 'Cloud ERP applications', 'Financial Management', 'Customer Relationship Management', 'Supply Chain Management', 'Human Capital Management'],
+    keywords: ['ai', 'joule', 'agent', 'automation', 'intelligent', 'machine learning', 'copilot'],
+    preferAgents: true,
+    description: 'AI in SAP environment',
+  },
+  aiNonSap: {
+    categories: ['Technology Platform'],
+    keywords: ['ai', 'ml', 'genai', 'llm', 'chatgpt', 'copilot', 'automation'],
+    preferAgents: true,
+    description: 'Non-SAP AI and integration',
+  },
+  data: {
+    categories: ['Technology Platform', 'Cloud ERP applications'],
+    keywords: ['data', 'analytics', 'datasphere', 'warehouse', 'quality', 'governance'],
+    preferAgents: false,
+    description: 'Data foundation and analytics',
+  },
+  security: {
+    categories: ['Technology Platform'],
+    keywords: ['security', 'compliance', 'governance', 'audit', 'risk'],
+    preferAgents: false,
+    description: 'Security and compliance',
+  },
+  org: {
+    categories: ['Human Capital Management', 'Technology Platform'],
+    keywords: ['training', 'skills', 'team', 'organization', 'change', 'adoption'],
+    preferAgents: true,
+    description: 'Organization and skills',
+  },
+  useCases: {
+    categories: [], // All categories
+    keywords: ['use case', 'process', 'automation', 'efficiency', 'productivity'],
+    preferAgents: true,
+    description: 'Use cases and prioritization',
+  },
+  // Finance-specific sections
+  finance: {
+    categories: ['Financial Management', 'Cloud ERP applications'],
+    keywords: ['finance', 'accounting', 'invoice', 'payment', 'cash', 'receivable', 'payable', 'accrual', 'dispute'],
+    preferAgents: true,
+    description: 'Finance and accounting',
+  },
+  // HR-specific sections
+  hr: {
+    categories: ['Human Capital Management'],
+    keywords: ['hr', 'employee', 'recruiting', 'talent', 'performance', 'learning', 'payroll'],
+    preferAgents: true,
+    description: 'Human resources',
+  },
+  // Sales-specific sections
+  sales: {
+    categories: ['Customer Relationship Management'],
+    keywords: ['sales', 'customer', 'lead', 'opportunity', 'quote', 'crm'],
+    preferAgents: true,
+    description: 'Sales and CRM',
+  },
+  // Service-specific sections
+  service: {
+    categories: ['Customer Relationship Management'],
+    keywords: ['service', 'support', 'ticket', 'case', 'knowledge', 'customer service'],
+    preferAgents: true,
+    description: 'Customer service',
+  },
+  // Supply chain sections
+  supplyChain: {
+    categories: ['Supply Chain Management', 'Product Lifecycle Management'],
+    keywords: ['supply chain', 'logistics', 'warehouse', 'inventory', 'transport', 'manufacturing', 'maintenance'],
+    preferAgents: true,
+    description: 'Supply chain and logistics',
+  },
+  // Procurement sections
+  procurement: {
+    categories: ['Spend Management', 'Supplier Management'],
+    keywords: ['procurement', 'purchasing', 'supplier', 'expense', 'travel', 'invoice'],
+    preferAgents: true,
+    description: 'Procurement and spend management',
+  },
+};
+
+/**
+ * Extract relevant keywords from assessment answers
+ * @param {Object} answers - Assessment answers
+ * @returns {string[]} - Extracted keywords
+ */
+function extractKeywordsFromAnswers(answers) {
+  if (!answers || typeof answers !== 'object') return [];
+  
+  const keywords = new Set();
+  const answersText = Object.values(answers)
+    .filter(a => typeof a === 'string')
+    .join(' ')
+    .toLowerCase();
+  
+  // Check for business area keywords
+  Object.entries(BUSINESS_AREA_KEYWORDS).forEach(([area, areaKeywords]) => {
+    areaKeywords.forEach(keyword => {
+      if (answersText.includes(keyword.toLowerCase())) {
+        keywords.add(area);
+      }
+    });
+  });
+  
+  // Check for specific process keywords
+  const processKeywords = [
+    'invoice', 'payment', 'order', 'delivery', 'production', 'maintenance',
+    'recruiting', 'onboarding', 'expense', 'travel', 'service', 'support',
+    'sales', 'marketing', 'analytics', 'reporting', 'planning', 'forecast'
+  ];
+  
+  processKeywords.forEach(keyword => {
+    if (answersText.includes(keyword)) {
+      keywords.add(keyword);
+    }
+  });
+  
+  return Array.from(keywords);
+}
+
+/**
  * Get AI hints for a specific section during assessment
+ * Enhanced version with better matching for AI Agents and Features
+ * 
  * @param {string} sectionId - Current section ID
  * @param {string} industry - Selected industry
  * @param {Object} answers - Current answers
  * @param {number} limit - Max hints to show
  * @returns {Promise<Object[]>} - Relevant AI use cases for hints
  */
-export async function getSectionAIHints(sectionId, industry, answers, limit = 3) {
-  // Map sections to relevant product categories
-  const sectionCategoryMap = {
-    general: [], // No specific category
-    landscape: ['Cloud ERP applications', 'Technology Platform'],
-    licensing: ['Cloud ERP applications'],
-    btp: ['Technology Platform'],
-    cloud: ['Cloud ERP applications', 'Technology Platform'],
-    aiSap: ['Technology Platform', 'Cloud ERP applications'],
-    aiNonSap: ['Technology Platform'],
-    data: ['Technology Platform', 'Cloud ERP applications'],
-    security: ['Technology Platform'],
-    org: ['Human Capital Management'],
-    useCases: [], // All categories
-  };
-  
-  const sectionCategories = sectionCategoryMap[sectionId] || [];
+export async function getSectionAIHints(sectionId, industry, answers, limit = 5) {
+  const sectionMapping = SECTION_AI_MAPPING[sectionId] || SECTION_AI_MAPPING.general;
+  const sectionCategories = sectionMapping.categories;
+  const sectionKeywords = sectionMapping.keywords;
+  const preferAgents = sectionMapping.preferAgents;
   
   try {
-    // Get recommendations with section-specific filtering
-    const recommendations = await getRecommendedAIUseCases(
-      { industry },
-      answers,
-      {
-        limit: limit * 2, // Get more to filter
-        filters: sectionCategories.length > 0 
-          ? { productCategories: sectionCategories }
-          : {},
-      }
-    );
+    // Get all use cases first
+    const allUseCases = await fetchUseCases();
     
-    // Prioritize AI Agents for automation-related sections
-    const automationSections = ['aiSap', 'aiNonSap', 'useCases'];
-    if (automationSections.includes(sectionId)) {
-      recommendations.sort((a, b) => {
-        if (a.ai_type === 'AI Agent' && b.ai_type !== 'AI Agent') return -1;
-        if (b.ai_type === 'AI Agent' && a.ai_type !== 'AI Agent') return 1;
-        return b.score - a.score;
-      });
+    if (!allUseCases || allUseCases.length === 0) {
+      return [];
     }
     
-    return recommendations.slice(0, limit);
+    // Extract keywords from answers
+    const answerKeywords = extractKeywordsFromAnswers(answers);
+    const allKeywords = [...sectionKeywords, ...answerKeywords];
+    
+    // Build context for scoring
+    const mentionedProducts = extractSAPProducts(answers);
+    const hasGenAI = hasGenAIInterest(answers);
+    const hasAutomation = hasAutomationInterest(answers);
+    
+    // Get industry categories
+    const industryCategories = INDUSTRY_CATEGORY_MAP[industry] || [];
+    
+    // Score and filter use cases
+    let scoredUseCases = allUseCases.map(useCase => {
+      let score = 0;
+      const matchReasons = [];
+      
+      // 1. Availability bonus (GA is most valuable)
+      switch (useCase.availability) {
+        case 'Generally Available':
+          score += 100;
+          break;
+        case 'Beta':
+          score += 50;
+          break;
+        case 'Early Adopter Care (EAC)':
+          score += 25;
+          break;
+        default:
+          score += 10;
+      }
+      
+      // 2. Section category match (high priority)
+      if (sectionCategories.length > 0 && sectionCategories.includes(useCase.product_category)) {
+        score += 80;
+        matchReasons.push('section');
+      }
+      
+      // 3. Industry category match
+      if (industryCategories.includes(useCase.product_category)) {
+        score += 60;
+        matchReasons.push('industry');
+      }
+      
+      // 4. Product match bonus
+      if (mentionedProducts && mentionedProducts.length > 0) {
+        const productMatch = mentionedProducts.some(p => 
+          useCase.product?.toLowerCase().includes(p.toLowerCase()) ||
+          p.toLowerCase().includes(useCase.product?.toLowerCase())
+        );
+        if (productMatch) {
+          score += 120;
+          matchReasons.push('product');
+        }
+      }
+      
+      // 5. Keyword match in name or description
+      const useCaseText = `${useCase.name} ${useCase.description}`.toLowerCase();
+      const keywordMatches = allKeywords.filter(kw => useCaseText.includes(kw.toLowerCase()));
+      if (keywordMatches.length > 0) {
+        score += keywordMatches.length * 30;
+        matchReasons.push('keyword');
+      }
+      
+      // 6. Joule/GenAI bonus
+      if (hasGenAI && useCase.quick_filters?.toLowerCase().includes('joule')) {
+        score += 60;
+        matchReasons.push('genai');
+      }
+      
+      // 7. AI Agent bonus (if section prefers agents or automation interest)
+      if (useCase.ai_type === 'AI Agent') {
+        if (preferAgents) {
+          score += 50;
+        }
+        if (hasAutomation) {
+          score += 40;
+          matchReasons.push('automation');
+        }
+      }
+      
+      // 8. Featured bonus
+      if (useCase.quick_filters?.toLowerCase().includes('featured')) {
+        score += 25;
+      }
+      
+      // 9. New bonus
+      if (useCase.quick_filters?.toLowerCase().includes('new')) {
+        score += 15;
+      }
+      
+      return {
+        ...useCase,
+        score,
+        matchReasons,
+        isRecommended: score >= 100,
+      };
+    });
+    
+    // Filter to relevant matches
+    scoredUseCases = scoredUseCases.filter(uc => uc.score >= 50);
+    
+    // Sort by score
+    scoredUseCases.sort((a, b) => {
+      // If section prefers agents, prioritize them
+      if (preferAgents) {
+        if (a.ai_type === 'AI Agent' && b.ai_type !== 'AI Agent') return -1;
+        if (b.ai_type === 'AI Agent' && a.ai_type !== 'AI Agent') return 1;
+      }
+      return b.score - a.score;
+    });
+    
+    // Ensure mix of Agents and Features if available
+    const agents = scoredUseCases.filter(uc => uc.ai_type === 'AI Agent');
+    const features = scoredUseCases.filter(uc => uc.ai_type === 'AI Feature');
+    
+    let result = [];
+    
+    if (preferAgents && agents.length > 0) {
+      // Prioritize agents but include some features
+      const agentCount = Math.min(Math.ceil(limit * 0.6), agents.length);
+      const featureCount = Math.min(limit - agentCount, features.length);
+      result = [...agents.slice(0, agentCount), ...features.slice(0, featureCount)];
+    } else {
+      // Mix based on score
+      result = scoredUseCases.slice(0, limit);
+    }
+    
+    // Re-sort by score
+    result.sort((a, b) => b.score - a.score);
+    
+    return result.slice(0, limit);
   } catch (error) {
     console.error('Error getting section AI hints:', error);
     return [];
