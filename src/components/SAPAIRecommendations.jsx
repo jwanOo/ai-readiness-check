@@ -56,16 +56,20 @@ export default function SAPAIRecommendations({
     setLoading(true);
     setError(null);
     try {
-      // Only show relevant recommendations based on industry and licenses
+      // STRICT FILTERING: Only show recommendations where customer has the product
+      // or there's a very strong industry/keyword match
       const results = await getRecommendedAIUseCases(
         assessment,
         answers,
         { 
-          limit: 15, // Limit to top 15 most relevant
-          includeAllMatches: false, // Only show relevant matches
-          minScore: 100, // Minimum relevance score
+          limit: 10, // Limit to top 10 most relevant
+          includeAllMatches: false, // STRICT: Only show relevant matches
+          minScore: 200, // HIGH minimum score required
+          requireProductMatch: false, // Allow strong industry matches too
         }
       );
+      
+      console.log('[SAPAIRecommendations] Loaded', results.length, 'recommendations');
       setRecommendations(results.map(formatRecommendation));
     } catch (err) {
       console.error('Error loading recommendations:', err);

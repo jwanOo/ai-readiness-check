@@ -434,7 +434,8 @@ export function calculateRecommendationScore(useCase, context) {
 
 /**
  * Get recommended AI use cases based on assessment
- * ONLY shows recommendations relevant to customer's industry and licenses
+ * STRICT FILTERING: Only shows recommendations where customer has the product license
+ * or there's a very strong industry/keyword match
  * 
  * @param {Object} assessment - Assessment object with industry
  * @param {Object} answers - Assessment answers
@@ -443,10 +444,11 @@ export function calculateRecommendationScore(useCase, context) {
  */
 export async function getRecommendedAIUseCases(assessment, answers, options = {}) {
   const {
-    limit = 15,
+    limit = 10,
     includeAllMatches = false,
     filters = {},
-    minScore = 100, // Minimum score to be considered relevant
+    minScore = 200, // HIGH minimum score - must have product match or strong industry match
+    requireProductMatch = false, // If true, ONLY show items where customer has the license
   } = options;
   
   try {
@@ -470,57 +472,49 @@ export async function getRecommendedAIUseCases(assessment, answers, options = {}
     const industrySAPProducts = industryNeeds.sapProducts || [];
     const industryBusinessAreas = industryNeeds.businessAreas || [];
     
-    const context = {
-      industry,
-      mentionedProducts,
-      hasGenAI,
-      hasAutomation,
-      answers,
-      industryNeeds,
-    };
-    
     // Get industry categories for filtering
     const industryCategories = INDUSTRY_CATEGORY_MAP[industry] || [];
     
-    // Filter and score use cases - ONLY include relevant ones
+    // Log for debugging
+    console.log('[AI Recommendations] Industry:', industry);
+    console.log('[AI Recommendations] Detected products:', mentionedProducts);
+    console.log('[AI Recommendations] Industry categories:', industryCategories);
+    console.log('[AI Recommendations] Has GenAI interest:', hasGenAI);
+    console.log('[AI Recommendations] Has Automation interest:', hasAutomation);
+    
+    // Filter and score use cases - STRICT filtering
     let recommendations = allUseCases.map(useCase => {
       let score = 0;
       const matchReasons = [];
+      let hasProductMatch = false;
+      let hasStrongIndustryMatch = false;
       
-      // 1. Availability bonus (GA is most valuable)
-      switch (useCase.availability) {
-        case 'Generally Available':
-          score += 50;
-          break;
-        case 'Beta':
-          score += 25;
-          break;
-        case 'Early Adopter Care (EAC)':
-          score += 10;
-          break;
-        default:
-          score += 5;
-      }
-      
-      // 2. CRITICAL: Product match - customer must have this product/license
+      // 1. CRITICAL: Product match - customer must have this product/license
+      // This is the PRIMARY filter - if customer has the product, show it
       const productMatch = mentionedProducts.some(p => {
         const productLower = useCase.product?.toLowerCase() || '';
         const pLower = p.toLowerCase();
-        return productLower.includes(pLower) || pLower.includes(productLower.split(' ')[0]);
+        // Check if product name contains the mentioned product
+        // e.g., "SAP S/4HANA Cloud Public Edition" contains "s/4hana"
+        return productLower.includes(pLower) || 
+               pLower.includes(productLower.split(' ')[0]) ||
+               // Also check for common abbreviations
+               (pLower.includes('s/4') && productLower.includes('s/4')) ||
+               (pLower.includes('successfactors') && productLower.includes('successfactors')) ||
+               (pLower.includes('ariba') && productLower.includes('ariba')) ||
+               (pLower.includes('concur') && productLower.includes('concur')) ||
+               (pLower.includes('analytics cloud') && productLower.includes('analytics cloud')) ||
+               (pLower.includes('sac') && productLower.includes('analytics cloud')) ||
+               (pLower.includes('btp') && productLower.includes('btp'));
       });
       
       if (productMatch) {
-        score += 150; // Strong signal - customer has this product
+        score += 300; // VERY strong signal - customer has this product
         matchReasons.push('product');
+        hasProductMatch = true;
       }
       
-      // 3. Industry category match
-      if (industryCategories.includes(useCase.product_category)) {
-        score += 80;
-        matchReasons.push('industry');
-      }
-      
-      // 4. Industry-specific AI use case name match
+      // 2. Industry-specific AI use case name match (strong signal)
       const useCaseNameLower = useCase.name?.toLowerCase() || '';
       const useCaseDescLower = useCase.description?.toLowerCase() || '';
       const industryUseCaseMatch = industryAIUseCases.some(iuc => 
@@ -528,44 +522,57 @@ export async function getRecommendedAIUseCases(assessment, answers, options = {}
         useCaseDescLower.includes(iuc.toLowerCase())
       );
       if (industryUseCaseMatch) {
-        score += 100;
+        score += 150;
         matchReasons.push('industry_usecase');
+        hasStrongIndustryMatch = true;
       }
       
-      // 5. Industry keyword match in description
+      // 3. Industry category match
+      if (industryCategories.includes(useCase.product_category)) {
+        score += 100;
+        matchReasons.push('industry');
+      }
+      
+      // 4. Industry keyword match in name/description
       const keywordMatches = industryKeywords.filter(kw => 
         useCaseNameLower.includes(kw.toLowerCase()) || 
         useCaseDescLower.includes(kw.toLowerCase())
       );
       if (keywordMatches.length > 0) {
-        score += keywordMatches.length * 20;
-        matchReasons.push('keyword');
+        score += keywordMatches.length * 30;
+        if (keywordMatches.length >= 2) {
+          matchReasons.push('keyword');
+          hasStrongIndustryMatch = true;
+        }
       }
       
-      // 6. Business area match
-      const businessAreaCategories = industryBusinessAreas.flatMap(ba => BUSINESS_AREA_TO_CATEGORY[ba] || []);
-      if (businessAreaCategories.includes(useCase.product_category)) {
-        score += 40;
-        matchReasons.push('business_area');
-      }
-      
-      // 7. Joule/GenAI bonus
+      // 5. Joule/GenAI bonus (only if customer expressed interest)
       if (hasGenAI && useCase.quick_filters?.toLowerCase().includes('joule')) {
-        score += 60;
+        score += 100;
         matchReasons.push('genai');
       }
       
-      // 8. AI Agent bonus (if automation interest)
+      // 6. AI Agent bonus (only if customer expressed automation interest)
       if (hasAutomation && useCase.ai_type === 'AI Agent') {
-        score += 50;
+        score += 80;
         matchReasons.push('automation');
       }
       
-      // 9. Featured/New bonus
-      if (useCase.quick_filters?.toLowerCase().includes('featured')) {
-        score += 15;
+      // 7. Availability bonus (GA is most valuable)
+      switch (useCase.availability) {
+        case 'Generally Available':
+          score += 30;
+          break;
+        case 'Beta':
+          score += 15;
+          break;
+        case 'Early Adopter Care (EAC)':
+          score += 5;
+          break;
       }
-      if (useCase.quick_filters?.toLowerCase().includes('new')) {
+      
+      // 8. Featured bonus (small)
+      if (useCase.quick_filters?.toLowerCase().includes('featured')) {
         score += 10;
       }
       
@@ -573,16 +580,27 @@ export async function getRecommendedAIUseCases(assessment, answers, options = {}
         ...useCase,
         score,
         matchReasons,
+        hasProductMatch,
+        hasStrongIndustryMatch,
         isRecommended: score >= minScore,
       };
     });
     
-    // CRITICAL: Filter to ONLY relevant matches
-    // Must have at least one match reason (industry, product, keyword, etc.)
+    // STRICT FILTERING: Only show truly relevant items
     if (!includeAllMatches) {
-      recommendations = recommendations.filter(r => 
-        r.score >= minScore && r.matchReasons.length > 0
-      );
+      recommendations = recommendations.filter(r => {
+        // Must have minimum score
+        if (r.score < minScore) return false;
+        
+        // Must have at least one match reason
+        if (r.matchReasons.length === 0) return false;
+        
+        // If requireProductMatch is true, must have product match
+        if (requireProductMatch && !r.hasProductMatch) return false;
+        
+        // Otherwise, must have either product match OR strong industry match
+        return r.hasProductMatch || r.hasStrongIndustryMatch || r.matchReasons.includes('genai') || r.matchReasons.includes('automation');
+      });
     }
     
     // Sort by score (descending)
@@ -592,6 +610,8 @@ export async function getRecommendedAIUseCases(assessment, answers, options = {}
     if (limit > 0) {
       recommendations = recommendations.slice(0, limit);
     }
+    
+    console.log('[AI Recommendations] Filtered results:', recommendations.length);
     
     return recommendations;
   } catch (error) {
