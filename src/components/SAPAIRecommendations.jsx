@@ -56,10 +56,15 @@ export default function SAPAIRecommendations({
     setLoading(true);
     setError(null);
     try {
+      // Only show relevant recommendations based on industry and licenses
       const results = await getRecommendedAIUseCases(
         assessment,
         answers,
-        { limit: 50, includeAllMatches: true }
+        { 
+          limit: 15, // Limit to top 15 most relevant
+          includeAllMatches: false, // Only show relevant matches
+          minScore: 100, // Minimum relevance score
+        }
       );
       setRecommendations(results.map(formatRecommendation));
     } catch (err) {
