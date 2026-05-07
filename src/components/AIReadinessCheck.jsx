@@ -2212,19 +2212,6 @@ export default function AIReadinessCheck({
             );
           })()}
           </div>
-          
-          {/* Right Side: AI Recommendations Panel */}
-          {!exportDone && !showRecommendations && allSections[activeSection] && (
-            <div style={{width:340,flexShrink:0,position:"sticky",top:0,alignSelf:"flex-start"}}>
-              <SectionRecommendations
-                section={allSections[activeSection]}
-                answers={answers}
-                industry={industry}
-                language={language}
-                customerName={answers['general_0'] || assessment?.customer_name || ''}
-              />
-            </div>
-          )}
         </div>
         
       </div>
