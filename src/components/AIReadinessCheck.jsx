@@ -2019,6 +2019,17 @@ export default function AIReadinessCheck({
                     answers={answers}
                     language={language}
                   />
+                  
+                  {/* SAP AI Catalogue Recommendations */}
+                  <div style={{marginTop: 24}}>
+                    <SAPAIRecommendations
+                      assessment={assessment}
+                      answers={answers}
+                      selectedUseCases={selectedAIUseCases}
+                      onSelectUseCase={(uc) => setSelectedAIUseCases(prev => [...prev, uc])}
+                      onDeselectUseCase={(uc) => setSelectedAIUseCases(prev => prev.filter(u => u.id !== uc.id))}
+                    />
+                  </div>
                 </div>
               )}
 
