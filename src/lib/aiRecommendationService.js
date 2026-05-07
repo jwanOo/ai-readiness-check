@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    AI RECOMMENDATION SERVICE
    Matches SAP AI use cases to customer assessments
-   Now with AI-powered intelligent recommendations
+   Enhanced with intelligent scoring and AI-powered recommendations
    ═══════════════════════════════════════════════════════════════ */
 
 import { fetchUseCases, INDUSTRY_CATEGORY_MAP } from './sapAICatalogService';
@@ -9,31 +9,74 @@ import { callAI } from './aiService';
 
 /**
  * SAP Products that can be detected in assessment answers
+ * Extended list with common variations and abbreviations
  */
 export const SAP_PRODUCTS = [
+  // Core ERP
   'SAP S/4HANA',
   'SAP S/4HANA Cloud',
+  'SAP S/4HANA Public Cloud',
+  'SAP S/4HANA Private Cloud',
   'SAP ECC',
+  'SAP ERP',
+  'RISE with SAP',
+  'GROW with SAP',
+  // Platform
   'SAP BTP',
   'SAP Business Technology Platform',
+  'SAP AI Core',
+  'SAP AI Launchpad',
+  'SAP Datasphere',
+  'SAP Data Intelligence',
+  'SAP Integration Suite',
+  'SAP Build',
+  'SAP Build Apps',
+  'SAP Build Process Automation',
+  // CX
   'SAP Sales Cloud',
   'SAP Service Cloud',
   'SAP Commerce Cloud',
   'SAP Marketing Cloud',
   'SAP Customer Data Platform',
+  'SAP Customer Data Cloud',
+  'SAP Emarsys',
+  // HCM
   'SAP SuccessFactors',
+  'SAP HCM',
+  'SAP HXM',
+  // Spend Management
   'SAP Ariba',
   'SAP Fieldglass',
   'SAP Concur',
+  // Supply Chain
   'SAP IBP',
   'SAP Integrated Business Planning',
+  'SAP TM',
+  'SAP Transportation Management',
+  'SAP EWM',
+  'SAP Extended Warehouse Management',
+  'SAP Digital Manufacturing',
+  'SAP ME',
+  'SAP MII',
+  // Analytics
   'SAP Analytics Cloud',
-  'SAP Datasphere',
-  'SAP Build',
+  'SAP SAC',
+  'SAP BW/4HANA',
+  'SAP Business Warehouse',
+  // Process
   'SAP Signavio',
+  'SAP Process Insights',
+  // AI
   'SAP Joule',
-  'SAP AI Core',
-  'SAP AI Launchpad',
+  'SAP Business AI',
+  // Industry
+  'SAP IS-U',
+  'SAP Utilities',
+  'SAP IS-H',
+  'SAP Healthcare',
+  'SAP Banking',
+  'SAP Insurance',
+  'SAP Retail',
 ];
 
 /**
@@ -42,6 +85,8 @@ export const SAP_PRODUCTS = [
 const GENAI_KEYWORDS = [
   'genai', 'generative', 'joule', 'chatbot', 'llm', 'gpt', 'copilot',
   'natural language', 'conversational', 'assistant', 'ki-assistent',
+  'sprachmodell', 'text generation', 'content generation', 'ai assistant',
+  'intelligent assistant', 'virtual assistant', 'chat', 'nlp', 'nlu',
 ];
 
 /**
@@ -49,8 +94,38 @@ const GENAI_KEYWORDS = [
  */
 const AUTOMATION_KEYWORDS = [
   'automat', 'agent', 'rpa', 'workflow', 'dunkelverarbeitung',
-  'straight-through', 'stp', 'bot', 'autonomous',
+  'straight-through', 'stp', 'bot', 'autonomous', 'self-service',
+  'automatisierung', 'prozessautomatisierung', 'intelligent automation',
+  'hyperautomation', 'no-touch', 'touchless', 'hands-free',
 ];
+
+/**
+ * Keywords that indicate specific business areas
+ */
+const BUSINESS_AREA_KEYWORDS = {
+  finance: ['finance', 'finanzen', 'accounting', 'buchhaltung', 'controlling', 'treasury', 'payment', 'invoice', 'billing', 'cash', 'credit', 'debit', 'gl', 'ap', 'ar'],
+  hr: ['hr', 'human resources', 'personal', 'recruiting', 'talent', 'learning', 'payroll', 'employee', 'workforce', 'mitarbeiter'],
+  sales: ['sales', 'vertrieb', 'crm', 'customer', 'kunde', 'lead', 'opportunity', 'quote', 'order', 'pricing'],
+  service: ['service', 'support', 'ticket', 'case', 'incident', 'helpdesk', 'kundenservice', 'field service'],
+  procurement: ['procurement', 'einkauf', 'purchasing', 'sourcing', 'supplier', 'lieferant', 'vendor', 'contract'],
+  supply_chain: ['supply chain', 'logistics', 'logistik', 'warehouse', 'lager', 'inventory', 'bestand', 'transport', 'shipping', 'delivery'],
+  manufacturing: ['manufacturing', 'fertigung', 'production', 'produktion', 'quality', 'qualität', 'maintenance', 'instandhaltung', 'shop floor'],
+  analytics: ['analytics', 'reporting', 'dashboard', 'kpi', 'forecast', 'prognose', 'prediction', 'insight', 'bi', 'business intelligence'],
+};
+
+/**
+ * Map business areas to SAP product categories
+ */
+const BUSINESS_AREA_TO_CATEGORY = {
+  finance: ['Financial Management', 'Cloud ERP applications'],
+  hr: ['Human Capital Management'],
+  sales: ['Customer Relationship Management'],
+  service: ['Customer Relationship Management'],
+  procurement: ['Spend Management', 'Supplier Management'],
+  supply_chain: ['Supply Chain Management'],
+  manufacturing: ['Supply Chain Management', 'Product Lifecycle Management'],
+  analytics: ['Technology Platform', 'Cloud ERP applications'],
+};
 
 /**
  * Extract SAP products mentioned in assessment answers
